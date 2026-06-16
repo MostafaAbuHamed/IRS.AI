@@ -50,7 +50,7 @@ async def classify_image(files: List[UploadFile] = File(...)):
         f"Analyze all the provided infrastructure images. They are multiple photos of the same damage. "
         f"Return a JSON object with exactly two fields: "
         f"\"classification\" (must be exactly one of these categories: {categories}) "
-        f"and \"description\" (2-3 sentences describing the damage based on all images). "
+        f"and \"description\" (3-5 sentences describing the damage based on all images). "
         f"Return only the JSON, no extra text or markdown."
     )
 
