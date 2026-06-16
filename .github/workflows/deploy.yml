@@ -16,5 +16,5 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           git config --global user.email "mostafa.ahmed.abuhamed@gmail.com"
-          git config --global user.name "Mostafa Abu-Hamed"
-          git push https://Mostafa-AbuHamed:$HF_TOKEN@huggingface.co/spaces/Mostafa-AbuHamed/IRS-AI main
+          git config --global user.name "MostafaAbuHamed "
+          git push https://MostafaAbuHamed:$HF_TOKEN@huggingface.co/spaces/Mostafa-AbuHamed/IRS-AI main --force
