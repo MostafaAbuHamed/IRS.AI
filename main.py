@@ -45,15 +45,18 @@ async def classify_image(images: List[UploadFile] = File(...)):
     ]
 
     prompt = (
-        f"Analyze all the provided infrastructure images. They are multiple photos of the same damage. "
-        f"Return a JSON object with exactly two fields: "
-        f"\"classification\" (must be exactly one of these categories: {categories}) "
-        f"and \"description\" (3-5 sentences describing the damage based on all images). "
-        f"Return only the JSON, no extra text or markdown."
+        f"Analyze the provided infrastructure images. "
+        f"You must respond with ONLY a raw JSON object. "
+        f"No markdown, no code blocks, no explanation, no extra text. "
+        f"The JSON must have exactly two fields: "
+        f"\"category\" (must be exactly one of: {categories}) "
+        f"and \"description\" (3-5 sentences describing the damage). "
+        f"Example of the exact format you must return: "
+        f'{{ "category": "Potholes and Road Cracks", "description": "The road surface has significant damage." }}'
     )
 
     message_content_list = []
-    
+
     # Process each image and convert to base64 for OpenAI format
     for file in images:
         image_bytes = await file.read()
@@ -81,13 +84,13 @@ async def classify_image(images: List[UploadFile] = File(...)):
                     "content": message_content_list
                 }
             ],
-            temperature=0.2,
+            temperature=0.1,
             max_tokens=1024
         )
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"NVIDIA NIM AI service error: {str(e)}"
+            status_code=503,
+            detail="AI service is temporarily unavailable. Please try again later."
         )
 
     raw_text = response.choices[0].message.content
@@ -96,29 +99,16 @@ async def classify_image(images: List[UploadFile] = File(...)):
     if not raw_text or raw_text.strip() == "":
         raise HTTPException(status_code=500, detail="NVIDIA NIM returned an empty response")
 
+    # Strip any accidental markdown fences just in case
     cleaned = re.sub(r"```(?:json)?\s*|\s*```", "", raw_text).strip()
 
-    # Attempt to parse as JSON first
     try:
         result = json.loads(cleaned)
-        # Ensure it maps properly to 'classification'
-        if "category" in result and "classification" not in result:
-            result["classification"] = result.pop("category")
     except json.JSONDecodeError:
-        # Fallback to Regex Parsing if the LLM outputted raw Markdown instead of JSON
-        category_match = re.search(r"(?:\*?\*?Category\*?\*?|\*?\*?Classification\*?\*?):\s*([^\n\r]+)", raw_text, re.IGNORECASE)
-        description_match = re.search(r"(?:\*?\*?Description\*?\*?):\s*(.*)", raw_text, re.IGNORECASE | re.DOTALL)
-
-        if category_match and description_match:
-            result = {
-                "classification": category_match.group(1).strip().strip("*").strip().strip('"').strip("'"),
-                "description": description_match.group(1).strip().strip("*").strip()
-            }
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to parse NVIDIA NIM response: {raw_text}"
-            )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Model did not return valid JSON: {raw_text}"
+        )
 
     return result
 
