@@ -30,14 +30,15 @@ async def classify_image(files: List[UploadFile] = File(...)):
 
     categories = [
         "Damaged concrete structures",
-        "DamagedElectricalPoles",
-        "DamagedRoadSigns",
-        "DeadAnimalsPollution",
-        "FallenTrees",
+        "Damaged Electrical Poles",
+        "Damaged Road Signs",
+        "Dead Animals Pollution",
+        "Fallen Trees",
         "Garbage",
         "Graffitti",
-        "IllegalParking",
-        "Potholes and RoadCracks"
+        "Illegal Parking",
+        "Potholes and Road Cracks",
+        "Water leak"
     ]
 
     # Build contents list — one Part per image + the prompt at the end
