@@ -4,7 +4,7 @@ import re
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from google import genai
-from google.genai import types
+from google.genai import types, errors as genai_errors
 from typing import List
 
 load_dotenv()
@@ -18,10 +18,10 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]
 
 @app.post("/classify-image")
-async def classify_image(files: List[UploadFile] = File(...)):
+async def classify_image(images: List[UploadFile] = File(...)):
 
     # Validate all files first
-    for file in files:
+    for file in images:
         if file.content_type not in ALLOWED_TYPES:
             raise HTTPException(
                 status_code=400,
@@ -43,7 +43,7 @@ async def classify_image(files: List[UploadFile] = File(...)):
 
     # Build contents list — one Part per image + the prompt at the end
     contents = []
-    for file in files:
+    for file in images:
         image_bytes = await file.read()
         contents.append(types.Part.from_bytes(data=image_bytes, mime_type=file.content_type))
 
@@ -55,10 +55,19 @@ async def classify_image(files: List[UploadFile] = File(...)):
         f"Return only the JSON, no extra text or markdown."
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
-        contents=contents
-    )
+    # Call Gemini with error handling
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=contents
+        )
+    except genai_errors.ServerError:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service is temporarily unavailable. Please try again later."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
     raw_text = response.text
     print(f"Gemini raw response: {raw_text}")
@@ -68,7 +77,15 @@ async def classify_image(files: List[UploadFile] = File(...)):
 
     cleaned = re.sub(r"```(?:json)?\s*|\s*```", "", raw_text).strip()
 
-    result = json.loads(cleaned)
+    # Parse JSON with error handling
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to parse Gemini response as JSON: {cleaned}"
+        )
+
     return result
 
 if __name__ == "__main__":
